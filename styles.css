@@ -1,4 +1,35 @@
-/* Sets all the text color to red! */
-body {
-    color: red;
+.login-title {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+}
+
+.login-title img {
+    height: 25px;
+    width: 25px;
+}
+
+.login-title p {
+    margin: 0;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.login-iframe {
+    width: 500px;
+    height: 500px;
+}
+
+
+.login-form button {
+    background-color: brown;
+    color: white;
 }
