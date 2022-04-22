@@ -10,7 +10,18 @@ export default class Braincache extends Plugin {
             if(!token){
                 new LoginModal(this.app).open()
             } else {
-                new Notice('syncing decks...');
+                fetch("https://localhost:8000/auth/status", {
+                  headers; {
+
+                  }
+                }).then((res) => {
+                    if(res.status == 401){
+                      console.log("401")
+                    } else {
+                      console.log("200")
+                    }
+                })
+                //new Notice('syncing decks...');
             }
 		});
 
