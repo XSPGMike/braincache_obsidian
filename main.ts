@@ -1,27 +1,22 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
-import * as electron from 'electron';
 
 export default class Braincache extends Plugin {
 
 	async onload() {
         this.addRibbonIcon('sync', 'braincache', (evt: MouseEvent) => {
-			electron.remote.app.commandLine.appendSwitch('allow-insecure-localhost', 'true')
             const token = globalThis.localStorage.getItem('braincache-token')
+            document.cookie = `session=${token}`
             if(!token){
                 new LoginModal(this.app).open()
             } else {
-                fetch("https://localhost:8000/auth/status", {
-                  headers; {
-
-                  }
-                }).then((res) => {
-                    if(res.status == 401){
-                      console.log("401")
-                    } else {
-                      console.log("200")
-                    }
-                })
-                //new Notice('syncing decks...');
+              fetch("https://api.braincache.co/auth/status", {
+                headers: {
+                  cookie: `session=${token}`
+                },
+                credentials: 'include'
+              }).then((res) => {
+                console.log(res)
+              })
             }
 		});
 
