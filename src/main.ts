@@ -5,6 +5,7 @@ import { checkAuth, uploadCards } from './api';
 export default class Braincache extends Plugin {
 
 	async onload() {
+    console.log("testing")
     this.addRibbonIcon('sync', 'braincache', (_ : MouseEvent) => {
       checkAuth()
         .then((authStatus) => {
