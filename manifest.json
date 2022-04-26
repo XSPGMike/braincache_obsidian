@@ -6,5 +6,5 @@
 	"description": "Create flashcards from obsidian notes",
 	"author": "braincache",
 	"authorUrl": "https://braincache.co",
-	"isDesktopOnly": false
+	"isDesktopOnly": true
 }
