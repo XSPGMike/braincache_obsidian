@@ -1,5 +1,5 @@
 import { App, Editor, Modal, Notice, Plugin } from 'obsidian';
-import { cardTemplate } from './process'
+import { cardTemplate, processDecks, postProcess } from './process'
 import { checkAuth, uploadCards } from './api';
 
 export default class Braincache extends Plugin {
@@ -38,11 +38,16 @@ export default class Braincache extends Plugin {
 
     const { vault } = this.app;
 
-    let cardFiles : string[] = await Promise.all(
-      vault.getMarkdownFiles().map((file) => vault.cachedRead(file))
+    let MDFiles: string[] = await Promise.all(
+      vault.getMarkdownFiles().map((MDFile) => vault.cachedRead(MDFile))
     )
 
+    const decks = processDecks(MDFiles)
+    console.log(decks)
+
     let cardCount = 0;
+
+    /*
 
     const processedCards = cardFiles
       .filter((el) => el.includes('#deck'))
@@ -62,8 +67,10 @@ export default class Braincache extends Plugin {
         }
       })
 
-    // send cards to braincache
     await uploadCards(processedCards)
+
+    */
+
     new Notice(`Synced ${cardCount} cards to braincache`)
   }
 
