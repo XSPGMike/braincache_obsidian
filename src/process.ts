@@ -1,4 +1,5 @@
 import { BcSet } from './types'
+import { marked } from 'marked'
 
 export const cardTemplate = (deck?: boolean) => {
   if(deck)
@@ -43,8 +44,8 @@ export const processCards = (unprocessedCards: string):
       }
 
       return {
-        question,
-        answer,
+        question: marked.parse(question),
+        answer: marked.parse(answer),
         id
       }
     })
