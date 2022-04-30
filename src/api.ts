@@ -45,19 +45,24 @@ async function findRemoteDeck(deckName: string): Promise<string> {
 async function findOrCreateDeck(deckName: string): Promise<string>{
   let deckId = localStorage.getItem(`bcDeck_${deckName}`)
 
-  // check if deck is still present on the server
+  /* the deck has been used locally before, 
+     this checks if it is still present on the server */
   if(deckId){
     if(await remoteDeckExists(deckId)){
       return deckId
     }
   }
 
+  /* the deck hasn't been used locally yet, 
+     this checks if a deck with the same name exists on the server */
   deckId = await findRemoteDeck(deckName)
 
   if(deckId){
     return deckId
   }
 
+  /* the deck hasn't been used locally,
+     a deck with that name doesn't exists on the sever, hence it gets created */
   const response = await fetch("https://api.braincache.co/decks/", {
     method: "POST",
     headers: {
@@ -73,7 +78,7 @@ async function findOrCreateDeck(deckName: string): Promise<string>{
   return deck.deckId;
 }
 
-export async function uploadCards(cardSets: BcSet[]): Promise<{status: boolean}>{
+export async function syncRemoteDecks(cardSets: BcSet[]): Promise<{status: boolean}>{
   const promises = []
   for(const set of cardSets){
     const deckId = await findOrCreateDeck(set.deckName);

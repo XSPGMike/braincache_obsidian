@@ -8,22 +8,45 @@ export const cardTemplate = (deck?: boolean) => {
 
 export const processCards = (unprocessedCards: string): {question: string, answer: string}[] => {
   return unprocessedCards
-    .split('---')
+    .split('q:')
     .filter(unprocessedCard => unprocessedCard !== '')
     .map(unprocessedCard => {
 
-      const question = unprocessedCard
-        .split('#q')[1]
-        .split('\n')[1]
-        .split('#a')[0]
+      let question = unprocessedCard
+        .split('a:')[0]
 
-      const answer = unprocessedCard.split('#a')[1].split('\n')[1]
+      if(question && question[0] === '\n'){
+        question = question.slice(1)
+      } else {
+        return
+      }
+
+      let answer = unprocessedCard
+        .split('a:')[1]
+
+      if(answer && answer[0] === '\n'){
+        answer = answer.slice(1)
+      } else {
+        return
+      }
+
+      let id = null
+
+      // check if the card contains a remoteId, if it does, strip it
+      if(answer && answer.contains('<!--id:')){
+        id = answer
+          .split('<!--id:')[1]
+          .split('-->')[0]
+        answer = answer.split('<!--id:')[0] + answer.split('-->')[1]
+      }
 
       return {
         question,
-        answer
+        answer,
+        id
       }
     })
+    .filter(processed => processed)
 }
 
 // extracts decks and cards from all .md files
@@ -56,7 +79,7 @@ export const processDecks = (files: string[]): BcSet[] => (
   )
 )
 
-// merges cards of the same deck
+// if a deck is cited in multiple files it will generate multiples entries in BcSet[], we merge them here
 export const postProcess = (rawDecks: BcSet[]): BcSet[] => {
   const decks: BcSet[] = []
   for(const rawDeck of rawDecks) {

@@ -1,6 +1,6 @@
 import { App, Editor, Modal, Notice, Plugin } from 'obsidian';
-import { cardTemplate, processDecks, postProcess } from './process'
-import { checkAuth, uploadCards } from './api';
+import { cardTemplate, processDecks } from './process'
+import { checkAuth, syncRemoteDecks } from './api';
 
 export default class Braincache extends Plugin {
 
@@ -39,38 +39,15 @@ export default class Braincache extends Plugin {
     const { vault } = this.app;
 
     let MDFiles: string[] = await Promise.all(
-      vault.getMarkdownFiles().map((MDFile) => vault.cachedRead(MDFile))
+      vault.getFiles().map((MDFile) => vault.cachedRead(MDFile))
     )
 
     const decks = processDecks(MDFiles)
-    console.log(decks)
+    const cardCount = decks.reduce((acc, el) => {
+      return acc += el.cards.length
+    }, 0)
 
-    let cardCount = 0;
-
-    /*
-
-    const processedCards = cardFiles
-      .filter((el) => el.includes('#deck'))
-      .map((file) => {
-        const deckName = file.split('\n')[0].replace('#deck_', '')
-        const cards = file.split('---')
-          .filter((el) => el.includes('#q'))
-          .map((card) => ({
-            question: card.split('#q\n')[1].split('#a\n')[0],
-            answer: card.split('#a\n')[1].split('\n---')[0]
-          }))
-        cardCount += cards.length
-
-        return {
-          deckName,
-          cards
-        }
-      })
-
-    await uploadCards(processedCards)
-
-    */
-
+    await syncRemoteDecks(decks)
     new Notice(`Synced ${cardCount} cards to braincache`)
   }
 
