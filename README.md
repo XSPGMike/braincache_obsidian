@@ -1,3 +1,3 @@
 ## braincache obsidian plugin
 
-create flashcards from obsidian notes
+create flashcards directly from obsidian notes

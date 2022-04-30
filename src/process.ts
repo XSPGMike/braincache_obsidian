@@ -107,6 +107,8 @@ export const applyPatches = async(patches: any[], vault: any) => {
         newContent.push(row)
         if(row === 'a:' && !arr[idx+1].includes('<!--id:')){
           newContent.push(`<!--id:${patches.shift()}-->`)
+        } else if(row === 'a:'){
+          patches.shift()
         }
       })
 
