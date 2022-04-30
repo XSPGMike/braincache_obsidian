@@ -2,16 +2,18 @@ import { BcSet } from './types'
 
 export const cardTemplate = (deck?: boolean) => {
   if(deck)
-    return (`#deck_deckname\n\n#q\n\n#a\n\n\n---\n`)
-  return (`#q\n\n#a\n\n\n---\n`)
+    return (`#deck_deckname\n\nq:\n\na:\n\n`)
+  return (`q:\n\na:\n\n`)
 }
 
-export const processCards = (unprocessedCards: string): {question: string, answer: string}[] => {
-  return unprocessedCards
+export const processCards = (unprocessedCards: string): 
+  { question: string, 
+    answer: string, 
+    id: string | null}[] => {
+  const processedCards = unprocessedCards
     .split('q:')
     .filter(unprocessedCard => unprocessedCard !== '')
     .map(unprocessedCard => {
-
       let question = unprocessedCard
         .split('a:')[0]
 
@@ -47,6 +49,8 @@ export const processCards = (unprocessedCards: string): {question: string, answe
       }
     })
     .filter(processed => processed)
+
+  return processedCards
 }
 
 // extracts decks and cards from all .md files
@@ -84,11 +88,28 @@ export const postProcess = (rawDecks: BcSet[]): BcSet[] => {
   const decks: BcSet[] = []
   for(const rawDeck of rawDecks) {
     const deck = decks.find(deck => deck.deckName === rawDeck.deckName)
-    if(deck) {
-      deck.cards = deck.cards.concat(rawDeck.cards)
-    } else {
-      decks.push(rawDeck)
-    }
+    deck 
+      ? deck.cards = deck.cards.concat(rawDeck.cards)
+      : decks.push(rawDeck)
   }
   return decks
+}
+
+export const applyPatches = async(patches: any[], vault: any) => {
+  const files = vault.getMarkdownFiles()
+  for(const file of files){
+    const content = await vault.cachedRead(file)
+    let newContent: string[] = []
+
+    content
+      .split('\n')
+      .forEach((row: string, idx: number, arr: string[]) => {
+        newContent.push(row)
+        if(row === 'a:' && !arr[idx+1].includes('<!--id:')){
+          newContent.push(`<!--id:${patches.shift()}-->`)
+        }
+      })
+
+    await vault.modify(file, newContent.join('\n'))
+  }
 }

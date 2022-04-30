@@ -1,12 +1,15 @@
 import { BcSet } from './types';
 
+const API_URL = "https://api.braincache.co"
+const api = (endPoint: string) => `${API_URL}/${endPoint}` 
+
 const token = () => { 
   return localStorage.getItem("braincache-token")
 };
 
 export async function checkAuth(): Promise<boolean> {
   if(token()){
-  const res = await fetch("https://api.braincache.co/auth/status", {
+  const res = await fetch(api('auth/status'), {
     headers: {
       "Authorization": `Bearer ${token()}`,
     }
@@ -23,7 +26,7 @@ export async function checkAuth(): Promise<boolean> {
 }
 
 async function remoteDeckExists(deckId: string): Promise<boolean> {
-  let res = await fetch(`https://api.braincache.co/decks/${deckId}`, {
+  let res = await fetch(api(`decks/${deckId}`), {
     headers: {
     "Authorization": `Bearer ${token()}`
     }
@@ -33,7 +36,7 @@ async function remoteDeckExists(deckId: string): Promise<boolean> {
 }
 
 async function findRemoteDeck(deckName: string): Promise<string> {
-  let res = await fetch(`https://api.braincache.co/decks`, {
+  let res = await fetch(api('decks'), {
     headers: {
       "Authorization": `Bearer ${token()}`
     }
@@ -63,7 +66,7 @@ async function findOrCreateDeck(deckName: string): Promise<string>{
 
   /* the deck hasn't been used locally,
      a deck with that name doesn't exists on the sever, hence it gets created */
-  const response = await fetch("https://api.braincache.co/decks/", {
+  const response = await fetch(api('decks'), {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${token()}`,
@@ -78,29 +81,57 @@ async function findOrCreateDeck(deckName: string): Promise<string>{
   return deck.deckId;
 }
 
-export async function syncRemoteDecks(cardSets: BcSet[]): Promise<{status: boolean}>{
+export async function syncRemoteDecks(cardSets: BcSet[]): Promise<any[]>{
   const promises = []
+  const headers = {
+    "authorization": `Bearer ${token()}`,
+    "content-type": "application/json"
+  }
   for(const set of cardSets){
     const deckId = await findOrCreateDeck(set.deckName);
     localStorage.setItem(`bcDeck_${set.deckName}`, deckId)
     for(const card of set.cards){
-      promises.push(fetch(`https://api.braincache.co/decks/${deckId}/card`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token()}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          front: card.question,
-          back: card.answer
-        })
-      }))
+      /* if the card has an id it updates the remote card with the local contents, 
+         otherwise creates a new one */
+      if(card.id){
+        promises.push(fetch(api(`cards/${card.id}`), {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({
+            front: card.question,
+            back: card.answer
+          })
+        }))
+      } else {
+        promises.push(fetch(api(`decks/${deckId}/card`), {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            front: card.question,
+            back: card.answer
+          })
+        }))
+      }
     }
   }
 
-  const res = await Promise.all(promises)
+  const results = await Promise.all(promises)
 
-  return {
-    status: res.every(r => r.status === 201)
+  /* this array will contain ids to apply to new cards, 
+     with empty spaces in between in order to easily allocate them, 
+     this is an hack and it sucks */
+
+  const cardPatches = []
+  for(const result of results){
+    try {
+      const data = await result.json()
+      data.cardId
+        ? cardPatches.push(data.cardId)
+        : cardPatches.push(undefined)
+      continue
+    } catch( _ ) {}
+    cardPatches.push(undefined)
   }
+
+  return cardPatches
 }

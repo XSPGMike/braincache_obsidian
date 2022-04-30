@@ -1,5 +1,5 @@
 import { App, Editor, Modal, Notice, Plugin } from 'obsidian';
-import { cardTemplate, processDecks } from './process'
+import { cardTemplate, processDecks, applyPatches } from './process'
 import { checkAuth, syncRemoteDecks } from './api';
 
 export default class Braincache extends Plugin {
@@ -21,10 +21,11 @@ export default class Braincache extends Plugin {
         const doc = editor.getValue()
         if(doc.includes('#deck')){
           editor.replaceRange(cardTemplate(), editor.getCursor())
+          editor.setCursor(editor.getCursor().line - 3, 0)
           return
         }
         editor.replaceRange(cardTemplate(true), editor.getCursor())
-        editor.setCursor(editor.getCursor().line - 5, 0)
+        editor.setCursor(editor.getCursor().line - 3, 0)
       }
     })
 
@@ -39,7 +40,7 @@ export default class Braincache extends Plugin {
     const { vault } = this.app;
 
     let MDFiles: string[] = await Promise.all(
-      vault.getFiles().map((MDFile) => vault.cachedRead(MDFile))
+      vault.getMarkdownFiles().map((MDFile) => vault.cachedRead(MDFile))
     )
 
     const decks = processDecks(MDFiles)
@@ -47,7 +48,9 @@ export default class Braincache extends Plugin {
       return acc += el.cards.length
     }, 0)
 
-    await syncRemoteDecks(decks)
+    const patches = await syncRemoteDecks(decks)
+    applyPatches(patches, vault)
+
     new Notice(`Synced ${cardCount} cards to braincache`)
   }
 
