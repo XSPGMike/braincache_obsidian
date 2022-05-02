@@ -3,8 +3,21 @@ import { BcSet } from './types'
 
 export const cardTemplate = (deck?: boolean) => {
   if(deck)
-    return (`#deck_deckname\n\nq:\n\na:\n\n`)
+    return (`#deck deckname\n\nq:\n\na:\n\n`)
   return (`q:\n\na:\n\n`)
+}
+
+const parseImages = (content: string): string => {
+  return content
+    .split('\n')
+    .map((content) => {
+      if(content.contains('![[')){
+        const localImage = content.split('![[')[1].split(']]')[0]
+        return content.split('![[')[0] + `<figure><img src=\"${localImage}\"></img></figure>` + content.split(']]')[1]
+      }
+      return content
+    })
+    .join('\n')
 }
 
 export const processCards = (unprocessedCards: string): 
@@ -43,6 +56,9 @@ export const processCards = (unprocessedCards: string):
         answer = answer.split('<!--id:')[0] + answer.split('-->')[1]
       }
 
+      question = parseImages(question)
+      answer = parseImages(answer)
+
       return {
         question: marked.parse(question),
         answer: marked.parse(answer),
@@ -60,7 +76,7 @@ export const processDecks = (files: string[]): BcSet[] => (
     .filter(file => file.includes('#deck'))
     .flatMap(deckFile => {
       return deckFile
-        .split('#deck_')
+        .split('#deck ')
         .filter(unprocessedDeck => (
           unprocessedDeck && unprocessedDeck !== '\n'
         ))
@@ -68,7 +84,6 @@ export const processDecks = (files: string[]): BcSet[] => (
 
           const deckName = cleanUDeck
             .split('\n')[0]
-            .split(' ')[0]
 
           const unprocessedCards = cleanUDeck
             .split('\n')

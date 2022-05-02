@@ -26,7 +26,7 @@ export default class Braincache extends Plugin {
 
     this.addSettingTab(new BCSetting(this.app, this));
     await this.loadSettings();
-    this.addRibbonIcon('braincache', 'braincache', (_ : MouseEvent) => {
+    this.addRibbonIcon('braincache', 'braincache sync', (_ : MouseEvent) => {
       this.handleSync()
 		});
 
@@ -52,7 +52,7 @@ export default class Braincache extends Plugin {
       return acc += el.cards.length
     }, 0)
 
-    const patches = await syncRemoteDecks(decks)
+    const patches = await syncRemoteDecks(decks, vault)
     applyPatches(patches, vault)
 
     new Notice(`Synced ${cardCount} cards to braincache`)

@@ -1,4 +1,5 @@
-import { BcSet } from './types';
+import { Vault, TFile } from 'obsidian'
+import { Card, BcSet } from './types';
 
 const API_URL = "https://api.braincache.co"
 const api = (endPoint: string) => `${API_URL}/${endPoint}` 
@@ -81,7 +82,59 @@ async function findOrCreateDeck(deckName: string): Promise<string>{
   return deck.deckId;
 }
 
-export async function syncRemoteDecks(cardSets: BcSet[]): Promise<any[]>{
+async function getBinary(img: string, vault: Vault){
+  let file
+  if(file = vault.getFiles().filter((el: TFile) => el.name === img)[0]){
+    const fileBuffer = await vault.readBinary(file)
+    return {data: fileBuffer, name: file.name}
+  }
+}
+
+/* if the card contains images they will be uploaded */
+async function uploadMedia(card: Card, vault: Vault): Promise<Card>{
+  if(card.question.includes('<img src="')){
+    const questionImages = card.question.match(/<img [^>]*src="[^"]*"[^>]*>/gm)
+                              .map(x => x.replace(/.*src="([^"]*)".*/, '$1'));
+    const questionBinaries = []
+
+    for(const qImage of questionImages){
+      const imageBuffer = await getBinary(qImage, vault)
+      questionBinaries.push(new File([imageBuffer.data], imageBuffer.name))
+    }
+
+    const remoteImagesIds: string[] = []
+    for(const bin of questionBinaries){
+      const formData = new FormData()
+      formData.append('media', bin)
+      const res = await fetch(api(`cards/media`), {
+        headers: {
+        "Authorization": `Bearer ${token()}`,
+        },
+        method: "POST",
+        body: formData,
+      })
+      const json = await res.json()
+      remoteImagesIds.push(json.url)
+    }
+    console.log(remoteImagesIds)
+
+    card.question = card.question
+      .split('\n')
+      .map((n) => {
+        if(n.includes('src="')){
+          const next = n.replace(/src="(?:[^'\/]*\/)*([^']+)"/g, `src="${remoteImagesIds.shift()}"`);
+          return next
+        } else {
+          return n
+        }
+      })
+      .join('\n')
+  }
+  console.log(card)
+  return card
+}
+
+export async function syncRemoteDecks(cardSets: BcSet[], vault: Vault): Promise<any[]>{
   const promises = []
   const headers = {
     "authorization": `Bearer ${token()}`,
@@ -90,7 +143,8 @@ export async function syncRemoteDecks(cardSets: BcSet[]): Promise<any[]>{
   for(const set of cardSets){
     const deckId = await findOrCreateDeck(set.deckName);
     localStorage.setItem(`bcDeck_${set.deckName}`, deckId)
-    for(const card of set.cards){
+    for(let card of set.cards){
+      card = await uploadMedia(card, vault)
       /* if the card has an id it updates the remote card with the local contents, 
          otherwise creates a new one */
       if(card.id){
