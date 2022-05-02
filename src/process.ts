@@ -1,3 +1,4 @@
+// @ts-ignore
 import { marked } from 'marked';
 import { BcSet } from './types'
 
