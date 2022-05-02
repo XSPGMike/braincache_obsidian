@@ -92,45 +92,45 @@ async function getBinary(img: string, vault: Vault){
 
 /* if the card contains images they will be uploaded */
 async function uploadMedia(card: Card, vault: Vault): Promise<Card>{
-  if(card.question.includes('<img src="')){
-    const questionImages = card.question.match(/<img [^>]*src="[^"]*"[^>]*>/gm)
-                              .map(x => x.replace(/.*src="([^"]*)".*/, '$1'));
-    const questionBinaries = []
+  for(const entry of ["question", "answer"])
+    if(card[entry as 'question' | 'answer'].includes('<img src="')){
+      const entryImages = card[entry as 'question' | 'answer' ].match(/<img [^>]*src="[^"]*"[^>]*>/gm)
+                                .map(x => x.replace(/.*src="([^"]*)".*/, '$1'));
+      const entryBinaries = []
 
-    for(const qImage of questionImages){
-      const imageBuffer = await getBinary(qImage, vault)
-      questionBinaries.push(new File([imageBuffer.data], imageBuffer.name))
+      for(const qImage of entryImages){
+        const imageBuffer = await getBinary(qImage, vault)
+        entryBinaries.push(new File([imageBuffer.data], imageBuffer.name))
+      }
+
+      const remoteImagesIds: string[] = []
+      for(const bin of entryBinaries){
+        const formData = new FormData()
+        formData.append('media', bin)
+        const res = await fetch(api(`cards/media`), {
+          headers: {
+          "Authorization": `Bearer ${token()}`,
+          },
+          method: "POST",
+          body: formData,
+        })
+        const json = await res.json()
+        remoteImagesIds.push(json.url)
+      }
+      console.log(remoteImagesIds)
+
+      card[entry as 'question' | 'answer'] = card[entry as 'question' | 'answer']
+        .split('\n')
+        .map((n) => {
+          if(n.includes('src="')){
+            const next = n.replace(/src="(?:[^'\/]*\/)*([^']+)"/g, `src="${remoteImagesIds.shift()}"`);
+            return next
+          } else {
+            return n
+          }
+        })
+        .join('\n')
     }
-
-    const remoteImagesIds: string[] = []
-    for(const bin of questionBinaries){
-      const formData = new FormData()
-      formData.append('media', bin)
-      const res = await fetch(api(`cards/media`), {
-        headers: {
-        "Authorization": `Bearer ${token()}`,
-        },
-        method: "POST",
-        body: formData,
-      })
-      const json = await res.json()
-      remoteImagesIds.push(json.url)
-    }
-    console.log(remoteImagesIds)
-
-    card.question = card.question
-      .split('\n')
-      .map((n) => {
-        if(n.includes('src="')){
-          const next = n.replace(/src="(?:[^'\/]*\/)*([^']+)"/g, `src="${remoteImagesIds.shift()}"`);
-          return next
-        } else {
-          return n
-        }
-      })
-      .join('\n')
-  }
-  console.log(card)
   return card
 }
 
