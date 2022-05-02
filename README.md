@@ -11,7 +11,7 @@ This is a companion plugin for [braincache](https://braincache.co)
 
 You can install this plugin from the community section in Obsidian.
 
-Alternatively, you can clone this repository into your vault's plugins folder at:
+Alternatively, you can download the latest release and put it into your vault's plugins folder at:
 
 `your-vault/.obsidian/plugins`
 
