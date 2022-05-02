@@ -1,15 +1,17 @@
 ## braincache-obsidian plugin
+<img src="https://braincache.co/android-chrome-192x192.baef1f58.png" width=100/>
 
-create your braincache flashcards directly from obsidian
+Create braincache flashcards directly from Obsidian.
 
 ### what is this?
 
-this is a companion plugin for [braincache](https://braincache.co)
+This is a companion plugin for [braincache](https://braincache.co)
 
 ### installation
 
-you can install this plugin from the community section in Obsidian.
-alternatively, you can clone this repository into your vault's plugin folder, which is located at `your-vault/.obsidian/plugins`
+You can install this plugin from the community section in Obsidian.
+
+Alternatively, you can clone this repository into your vault's plugins folder, which is located at `your-vault/.obsidian/plugins`
 
 after having installed the plugin you should login:
 1. press the braincache ribbon button
@@ -18,20 +20,39 @@ after having installed the plugin you should login:
 
 ### how does it work?
 
-you can define cards in any of your markdown files with the following syntax:
+Cards can be defined in any of your markdown files with the following syntax:
 
 ```md
 
-  #deck deckname
+  	#deck deckname
 
-  q:
+  	q:
 
-  this is a question?
+  	this is a question?
 
-  a:
-
-  this is an answer
+  	a:
+	
+	this is an answer.
 
 ```
 
-pressing the ribbon button or using the "sync" command will synchronize the local cards with your braincache account.
+images can also be included, they will be uploaded to the braincache's server
+
+```md
+	
+	#deck deckname
+	
+	q:
+	
+	this is a question with an image
+	![[image.png]]
+	
+	a:
+	
+	this is an answer.
+
+```
+
+Pressing the ribbon button or using the "sync" command will synchronize the local cards with your braincache account.
+
+The plugin is currently in an extremely early stage of development, you **will** encounter bugs, when you do please file an issue.
