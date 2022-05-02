@@ -1,33 +1,37 @@
-import { App, Editor, Modal, Notice, Plugin } from 'obsidian';
-import { cardTemplate, processDecks, applyPatches } from './process'
+import { App, addIcon, Modal, Notice, Plugin } from 'obsidian';
+import { processDecks, applyPatches } from './process'
 import { checkAuth, syncRemoteDecks } from './api';
+import { BCSetting } from './settings';
+import { BcCreateCard, BcSyncDecks } from './commands';
+import { ribbonIcon } from './consts';
+
+const DEFAULT_SETTINGS = {
+  dateFormat: "testing"
+}
 
 export default class Braincache extends Plugin {
+  settings: {dateFormat?: string} = {}
 
-	async onload() {
-    this.addRibbonIcon('sync', 'braincache', (_ : MouseEvent) => {
+  handleSync = () => {
       checkAuth()
         .then((authStatus) => {
           authStatus 
           ? this.syncDecks()
           : new LoginModal(this.app).open()
         })
+  }
+
+	async onload() {
+    addIcon("braincache", ribbonIcon);
+
+    this.addSettingTab(new BCSetting(this.app, this));
+    await this.loadSettings();
+    this.addRibbonIcon('braincache', 'braincache', (_ : MouseEvent) => {
+      this.handleSync()
 		});
 
-    this.addCommand({
-      id: 'braincache-create-card',
-      name: 'create card',
-      editorCallback: (editor: Editor) => {
-        const doc = editor.getValue()
-        if(doc.includes('#deck')){
-          editor.replaceRange(cardTemplate(), editor.getCursor())
-          editor.setCursor(editor.getCursor().line - 3, 0)
-          return
-        }
-        editor.replaceRange(cardTemplate(true), editor.getCursor())
-        editor.setCursor(editor.getCursor().line - 3, 0)
-      }
-    })
+    this.addCommand(BcCreateCard)
+    this.addCommand(BcSyncDecks(this.handleSync))
 
 		const cardCountEl = this.addStatusBarItem();
 		cardCountEl.setText('0 cards');
@@ -52,6 +56,14 @@ export default class Braincache extends Plugin {
     applyPatches(patches, vault)
 
     new Notice(`Synced ${cardCount} cards to braincache`)
+  }
+
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+
+  async saveSettings() {
+    await this.saveData(this.settings);
   }
 
 	onunload() {

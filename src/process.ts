@@ -1,5 +1,5 @@
+import { marked } from 'marked';
 import { BcSet } from './types'
-import { marked } from 'marked'
 
 export const cardTemplate = (deck?: boolean) => {
   if(deck)
