@@ -11,7 +11,9 @@ This is a companion plugin for [braincache](https://braincache.co)
 
 You can install this plugin from the community section in Obsidian.
 
-Alternatively, you can clone this repository into your vault's plugins folder, which is located at `your-vault/.obsidian/plugins`
+Alternatively, you can clone this repository into your vault's plugins folder at:
+
+`your-vault/.obsidian/plugins`
 
 after having installed the plugin you should login:
 1. press the braincache ribbon button
@@ -44,7 +46,7 @@ images can also be included, they will be uploaded to the braincache's server
 	
 	q:
 	
-	this is a question with an image
+	this is a question with an image?
 	![[image.png]]
 	
 	a:
