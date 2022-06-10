@@ -1,4 +1,4 @@
-import { App, addIcon, Modal, Notice, Plugin } from "obsidian";
+import { App, addIcon, Modal, Notice, Plugin, TFile } from "obsidian";
 import { extractDecksFromTaggedMarkdown, applyPatches } from "./process";
 import { checkAuth, syncRemoteDecks } from "./api";
 import { BCSetting } from "./settings";
@@ -35,23 +35,40 @@ export default class Braincache extends Plugin {
 	}
 
 	async syncDecks() {
+    //console.time("auth check")
 		const authStatus = await checkAuth();
 		if (!authStatus) return;
+    //console.timeEnd("auth check")
 
+    //console.time("get md files and contents")
 		const { vault } = this.app;
 
-		let mdFiles: string[] = await Promise.all(
-			vault.getMarkdownFiles().map((mdFile) => vault.cachedRead(mdFile))
-		);
+    let mdFiles: TFile[] = []
+    let mdFilesContents: string[] = []
 
-		const decks = extractDecksFromTaggedMarkdown(mdFiles);
+    for(const mdFile of vault.getMarkdownFiles()){
+      const mdFileContent = await vault.cachedRead(mdFile)
+      if(mdFileContent.includes("#deck")){
+        mdFiles.push(mdFile)
+        mdFilesContents.push(mdFileContent)
+      }
+    }
+    //console.timeEnd("get md files and contents")
+
+    //console.time("extract decks from tagged markdown")
+		const decks = extractDecksFromTaggedMarkdown(mdFilesContents);
 		const cardCount = decks.reduce((acc, el) => {
 			return (acc += el.cards.length);
 		}, 0);
+    //console.timeEnd("extract decks from tagged markdown")
 
+    //console.time("applying remote patches")
 		const patches = await syncRemoteDecks(decks, vault);
 		const patchedCount = patches.filter((el) => el !== undefined).length;
-		applyPatches(patches, vault);
+    //console.timeEnd("applying remote patches")
+    //console.time("applying local patches")
+		await applyPatches(patches, mdFiles, mdFilesContents, vault);
+    //console.timeEnd("applying local patches")
 
 		new Notice(
 			`Synced ${patchedCount} of ${cardCount} cards to braincache`

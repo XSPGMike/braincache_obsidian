@@ -1,5 +1,6 @@
 // @ts-ignore
 import { marked } from "marked";
+import { TFile } from "obsidian";
 import { BcSet } from "./types";
 
 export const cardTemplate = (deck?: boolean) => {
@@ -73,7 +74,6 @@ export const processCards = (
 export const extractDecksFromTaggedMarkdown = (files: string[]): BcSet[] =>
 	postProcess(
 		files
-			.filter((file) => file.includes("#deck"))
 			.flatMap((deckFile) => {
 				return deckFile
 					.split("#deck ")
@@ -109,10 +109,9 @@ export const postProcess = (rawDecks: BcSet[]): BcSet[] => {
 	return decks;
 };
 
-export const applyPatches = async (patches: any[], vault: any) => {
-	const files = vault.getMarkdownFiles();
-	for (const file of files) {
-		const content = await vault.cachedRead(file);
+export const applyPatches = async (patches: any[], mdFiles: TFile[], mdFileContents: string[], vault: any) => {
+	for (const file of mdFiles) {
+    let content = mdFileContents[mdFiles.indexOf(file)]
 		let newContent: string[] = [];
 
 		content
