@@ -38,7 +38,7 @@ Cards can be defined in any of your markdown files with the following syntax:
 
 ```
 
-images can also be included, they will be uploaded to the braincache's server
+images can also be included, they will be uploaded to braincache's server
 
 ```md
 	
