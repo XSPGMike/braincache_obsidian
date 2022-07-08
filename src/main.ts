@@ -35,7 +35,7 @@ export default class Braincache extends Plugin {
 			}
 		);
 		this.addCommand(BcCreateCard);
-		this.addCommand(BcSyncDecks(this.handleSync));
+		this.addCommand(BcSyncDecks(this.handleSync.bind(this)));
 		const cardCountEl = this.addStatusBarItem();
 		cardCountEl.setText("0 cards");
 	}
