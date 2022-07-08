@@ -73,28 +73,30 @@ export const processCards = (
 // extracts decks and cards from all .md files
 export const extractDecksFromTaggedMarkdown = (files: string[]): BcSet[] =>
 	postProcess(
-		files
-			.flatMap((deckFile) => {
-				return deckFile
-					.split("#deck ")
-					.filter(
-						(unprocessedDeck) =>
-							unprocessedDeck && unprocessedDeck !== "\n"
-					)
-					.map((cleanUDeck) => {
-						const deckName = cleanUDeck.split("\n")[0];
+		files.flatMap((deckFile) => {
+			return deckFile
+				.split("#deck ")
+				.filter(
+					(unprocessedDeck) =>
+						unprocessedDeck &&
+						unprocessedDeck !== "\n" &&
+						unprocessedDeck.includes("q:") &&
+						unprocessedDeck.includes("a:")
+				)
+				.map((cleanUDeck) => {
+					const deckName = cleanUDeck.split("\n")[0];
+					const unprocessedCards = cleanUDeck
+						.split("\n")
+						.filter((row, i) => i !== 0 && row !== "")
+						.join("\n");
 
-						const unprocessedCards = cleanUDeck
-							.split("\n")
-							.filter((row, i) => i !== 0 && row !== "")
-							.join("\n");
-
-						return {
-							deckName,
-							cards: processCards(unprocessedCards),
-						};
-					});
-			})
+					const cards = processCards(unprocessedCards);
+					return {
+						deckName,
+						cards,
+					};
+				});
+		})
 	);
 
 // if a deck is cited in multiple files it will generate multiples entries in BcSet[], we merge them here
@@ -109,9 +111,14 @@ export const postProcess = (rawDecks: BcSet[]): BcSet[] => {
 	return decks;
 };
 
-export const applyPatches = async (patches: any[], mdFiles: TFile[], mdFileContents: string[], vault: any) => {
+export const applyPatches = async (
+	patches: any[],
+	mdFiles: TFile[],
+	mdFileContents: string[],
+	vault: any
+) => {
 	for (const file of mdFiles) {
-    let content = mdFileContents[mdFiles.indexOf(file)]
+		let content = mdFileContents[mdFiles.indexOf(file)];
 		let newContent: string[] = [];
 
 		content

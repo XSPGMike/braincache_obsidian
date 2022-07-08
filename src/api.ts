@@ -152,6 +152,7 @@ export async function syncRemoteDecks(
 		"content-type": "application/json",
 	};
 	for (const set of cardSets) {
+		if (set.cards.length === 0) continue;
 		const deckId = await findOrCreateDeck(set.deckName);
 		localStorage.setItem(`bcDeck_${set.deckName}`, deckId);
 		for (let card of set.cards) {

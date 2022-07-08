@@ -9,66 +9,73 @@ const DEFAULT_SETTINGS = {
 	dateFormat: "testing",
 };
 
+const DEBUG = true;
+
 export default class Braincache extends Plugin {
 	settings: { dateFormat?: string } = {};
 
-	handleSync = () => {
-		checkAuth().then((authStatus) => {
-			authStatus ? this.syncDecks() : new LoginModal(this.app).open();
-		});
-	};
+	async handleSync() {
+		const authStatus = await checkAuth();
+		if (authStatus) {
+			this.syncDecks();
+		} else {
+			new LoginModal(this.app).open();
+		}
+	}
 
 	async onload() {
 		addIcon("braincache", ribbonIcon);
-
 		this.addSettingTab(new BCSetting(this.app, this));
 		await this.loadSettings();
-		this.addRibbonIcon("braincache", "braincache sync", (_: MouseEvent) => {
-			this.handleSync();
-		});
-
+		this.addRibbonIcon(
+			"braincache",
+			"braincache sync",
+			async (_: MouseEvent) => {
+				await this.handleSync();
+			}
+		);
 		this.addCommand(BcCreateCard);
 		this.addCommand(BcSyncDecks(this.handleSync));
-
 		const cardCountEl = this.addStatusBarItem();
 		cardCountEl.setText("0 cards");
 	}
 
 	async syncDecks() {
-    //console.time("auth check")
+		DEBUG && console.time("auth check");
 		const authStatus = await checkAuth();
 		if (!authStatus) return;
-    //console.timeEnd("auth check")
+		DEBUG && console.timeEnd("auth check");
 
-    //console.time("get md files and contents")
+		DEBUG && console.time("get md files and contents");
 		const { vault } = this.app;
 
-    let mdFiles: TFile[] = []
-    let mdFilesContents: string[] = []
+		let mdFiles: TFile[] = [];
+		let mdFilesContents: string[] = [];
 
-    for(const mdFile of vault.getMarkdownFiles()){
-      const mdFileContent = await vault.cachedRead(mdFile)
-      if(mdFileContent.includes("#deck")){
-        mdFiles.push(mdFile)
-        mdFilesContents.push(mdFileContent)
-      }
-    }
-    //console.timeEnd("get md files and contents")
+		for (const mdFile of vault.getMarkdownFiles()) {
+			const mdFileContent = await vault.cachedRead(mdFile);
+			if (mdFileContent.includes("#deck")) {
+				mdFiles.push(mdFile);
+				mdFilesContents.push(mdFileContent);
+			}
+		}
+		DEBUG && console.timeEnd("get md files and contents");
 
-    //console.time("extract decks from tagged markdown")
+		DEBUG && console.time("extract decks from tagged markdown");
 		const decks = extractDecksFromTaggedMarkdown(mdFilesContents);
 		const cardCount = decks.reduce((acc, el) => {
 			return (acc += el.cards.length);
 		}, 0);
-    //console.timeEnd("extract decks from tagged markdown")
+		DEBUG && console.timeEnd("extract decks from tagged markdown");
 
-    //console.time("applying remote patches")
+		DEBUG && console.time("applying remote patches");
 		const patches = await syncRemoteDecks(decks, vault);
 		const patchedCount = patches.filter((el) => el !== undefined).length;
-    //console.timeEnd("applying remote patches")
-    //console.time("applying local patches")
+		DEBUG && console.timeEnd("applying remote patches");
+
+		DEBUG && console.time("applying local patches");
 		await applyPatches(patches, mdFiles, mdFilesContents, vault);
-    //console.timeEnd("applying local patches")
+		DEBUG && console.timeEnd("applying local patches");
 
 		new Notice(
 			`Synced ${patchedCount} of ${cardCount} cards to braincache`
