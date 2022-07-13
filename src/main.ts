@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS = {
 	dateFormat: "testing",
 };
 
-const DEBUG = true;
+const DEBUG = false;
 
 export default class Braincache extends Plugin {
 	settings: { dateFormat?: string } = {};
@@ -69,16 +69,41 @@ export default class Braincache extends Plugin {
 		DEBUG && console.timeEnd("extract decks from tagged markdown");
 
 		DEBUG && console.time("applying remote patches");
-		const patches = await syncRemoteDecks(decks, vault);
-		const patchedCount = patches.filter((el) => el !== undefined).length;
+		const { patches, del, results } = await syncRemoteDecks(decks, vault);
 		DEBUG && console.timeEnd("applying remote patches");
 
 		DEBUG && console.time("applying local patches");
 		await applyPatches(patches, mdFiles, mdFilesContents, vault);
 		DEBUG && console.timeEnd("applying local patches");
 
+		let totCount = 0;
+		let finals = [];
+		for (let i = 0; i < decks.length; i++) {
+			finals.push({
+				name: decks[i].deckName,
+				synced: 0,
+				error: 0,
+			});
+			for (let y = 0; y < decks[i].cards.length; y++) {
+				if (results[totCount]) {
+					finals.at(-1).synced++;
+				} else {
+					finals.at(-1).error++;
+				}
+				totCount++;
+			}
+		}
+
+		// notice that some decks have been deleted remotely
+		if (del) {
+			new Notice(
+				`Some cards or decks were deleted remotely, delete local ids to sync them again!`
+			);
+		}
 		new Notice(
-			`Synced ${patchedCount} of ${cardCount} cards to braincache`
+			`total cards: ${cardCount}\n${finals
+				.map((d) => `${d.name}: ${d.synced} synced, ${d.error} errors`)
+				.join("\n")}`
 		);
 	}
 

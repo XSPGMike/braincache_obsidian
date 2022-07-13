@@ -120,7 +120,6 @@ async function uploadMedia(card: Card, vault: Vault): Promise<Card> {
 				const json = await res.json();
 				remoteImagesIds.push(json.url);
 			}
-			console.log(remoteImagesIds);
 
 			card[entry as "question" | "answer"] = card[
 				entry as "question" | "answer"
@@ -145,14 +144,13 @@ async function uploadMedia(card: Card, vault: Vault): Promise<Card> {
 export async function syncRemoteDecks(
 	cardSets: BcSet[],
 	vault: Vault
-): Promise<any[]> {
+): Promise<{ patches: any[]; del: boolean; results: boolean[] }> {
 	const promises = [];
 	const headers = {
 		authorization: `Bearer ${token()}`,
 		"content-type": "application/json",
 	};
 	for (const set of cardSets) {
-		if (set.cards.length === 0) continue;
 		const deckId = await findOrCreateDeck(set.deckName);
 		localStorage.setItem(`bcDeck_${set.deckName}`, deckId);
 		for (let card of set.cards) {
@@ -192,13 +190,19 @@ export async function syncRemoteDecks(
      this is an hack and it sucks */
 
 	const cardPatches = [];
+	let del = false;
 	for (const result of results) {
 		if ([201, 200].includes(result.status)) {
 			const data = await result.json();
 			cardPatches.push(data.cardId);
 		} else {
+			del = true;
 			cardPatches.push(undefined);
 		}
 	}
-	return cardPatches;
+	return {
+		patches: cardPatches,
+		del,
+		results: results.map((r) => [201, 200].includes(r.status)),
+	};
 }
