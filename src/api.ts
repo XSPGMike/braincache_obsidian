@@ -46,11 +46,12 @@ async function findRemoteDeck(deckName: string): Promise<string> {
 	return decks.find((d: any) => d.name === deckName)?.deckId;
 }
 
-async function findOrCreateDeck(deckName: string): Promise<string> {
+async function findOrCreateDeck(deckName: string): Promise<string | undefined> {
+	if (deckName.length === 0) return;
 	let deckId = localStorage.getItem(`bcDeck_${deckName}`);
 
 	/* the deck has been used locally before, 
-     this checks if it is still present on the server */
+	 this checks if it is still present on the server */
 	if (deckId) {
 		if (await remoteDeckExists(deckId)) {
 			return deckId;
@@ -58,7 +59,7 @@ async function findOrCreateDeck(deckName: string): Promise<string> {
 	}
 
 	/* the deck hasn't been used locally yet, 
-     this checks if a deck with the same name exists on the server */
+	 this checks if a deck with the same name exists on the server */
 	deckId = await findRemoteDeck(deckName);
 
 	if (deckId) {
@@ -66,7 +67,7 @@ async function findOrCreateDeck(deckName: string): Promise<string> {
 	}
 
 	/* the deck hasn't been used locally,
-     a deck with that name doesn't exists on the sever, hence it gets created */
+	 a deck with that name doesn't exists on the sever, hence it gets created */
 	const response = await fetch(api("decks"), {
 		method: "POST",
 		headers: {
@@ -141,8 +142,8 @@ async function uploadMedia(card: Card, vault: Vault): Promise<Card> {
 	return card;
 }
 
-export async function syncRemoteDecks(
-	cardSets: BcSet[],
+export async function syncDecks(
+	cardSets: BcSet,
 	vault: Vault
 ): Promise<{ patches: any[]; del: boolean; results: boolean[] }> {
 	const promises = [];
@@ -152,11 +153,12 @@ export async function syncRemoteDecks(
 	};
 	for (const set of cardSets) {
 		const deckId = await findOrCreateDeck(set.deckName);
+		if (!deckId) return;
 		localStorage.setItem(`bcDeck_${set.deckName}`, deckId);
 		for (let card of set.cards) {
 			card = await uploadMedia(card, vault);
 			/* if the card has an id it updates the remote card with the local contents, 
-         otherwise creates a new one */
+		 otherwise creates a new one */
 			if (card.id) {
 				promises.push(
 					fetch(api(`cards/${card.id}`), {
@@ -186,8 +188,8 @@ export async function syncRemoteDecks(
 	const results = await Promise.all(promises);
 
 	/* this array will contain ids to apply to new cards, 
-     with empty spaces in between in order to easily allocate them, 
-     this is an hack and it sucks */
+	 with empty spaces in between in order to easily allocate them, 
+	 this is an hack and it sucks */
 
 	const cardPatches = [];
 	let del = false;

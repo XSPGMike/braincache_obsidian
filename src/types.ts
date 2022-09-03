@@ -1,10 +1,9 @@
+import { TFile } from "obsidian";
+
 export interface Card {
-	question: string;
-	answer: string;
+	q: string;
+	a: string;
 	id?: string | null;
 }
 
-export interface BcSet {
-	deckName: string;
-	cards: Card[];
-}
+export type BcSet = Map<string, { file: TFile; cards: Card[] }[]>;

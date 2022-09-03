@@ -1,7 +1,7 @@
 // @ts-ignore
 import { marked } from "marked";
 import { TFile } from "obsidian";
-import { BcSet } from "./types";
+import { BcSet, Card } from "./types";
 
 export const cardTemplate = (deck?: boolean) => {
 	if (deck) return `#deck deckname\n\nq:\n\na:\n\n`;
@@ -28,7 +28,7 @@ const parseImages = (content: string): string => {
 export const processCards = (
 	unprocessedCards: string
 ): { question: string; answer: string; id: string | null }[] => {
-	const processedCards = unprocessedCards
+	return unprocessedCards
 		.split("q:")
 		.filter((unprocessedCard) => unprocessedCard !== "")
 		.map((unprocessedCard) => {
@@ -48,7 +48,7 @@ export const processCards = (
 				return;
 			}
 
-			let id = null;
+			let id;
 
 			// check if the card contains a remoteId, if it does, strip it
 			if (answer && answer.contains("<!--id:")) {
@@ -66,38 +66,108 @@ export const processCards = (
 			};
 		})
 		.filter((processed) => processed);
-
-	return processedCards;
 };
 
-// extracts decks and cards from all .md files
-export const extractDecksFromTaggedMarkdown = (files: string[]): BcSet[] =>
-	postProcess(
-		files.flatMap((deckFile) => {
-			return deckFile
-				.split("#deck ")
-				.filter(
-					(unprocessedDeck) =>
-						unprocessedDeck &&
-						unprocessedDeck !== "\n" &&
-						unprocessedDeck.includes("q:") &&
-						unprocessedDeck.includes("a:")
-				)
-				.map((cleanUDeck) => {
-					const deckName = cleanUDeck.split("\n")[0];
-					const unprocessedCards = cleanUDeck
-						.split("\n")
-						.filter((row, i) => i !== 0 && row !== "")
-						.join("\n");
+const parseRawDeck = (raw: string): { deck: string; cards: Card[] } => {
+	let [deck, ...rest] = raw
+		.split("\n")
+		.filter((l) => l)
+		.map((l) => l.trim());
+	const cards: Card[] = [];
+	let q,
+		a = false;
 
-					const cards = processCards(unprocessedCards);
-					return {
-						deckName,
-						cards,
-					};
-				});
-		})
-	);
+	for (const r of rest) {
+		switch (r) {
+			case "q:":
+				q = true;
+				cards.push({ q: "", a: "" });
+				break;
+			case "a:":
+				if (q) [q, a] = [false, true];
+				break;
+			case "---":
+				[q, a] = [false, false];
+			default:
+				if (q || a) {
+					let lc = cards.at(-1);
+					if (q) {
+						lc["q"] += r + "\n";
+					} else if (a) {
+						lc["a"] += r + "\n";
+					}
+					cards[cards.length - 1] = lc;
+				}
+				break;
+		}
+	}
+
+	for (const c of cards) {
+		if (!c["q"] || !c["a"]) {
+			throw new Error("Invalid card construction");
+		}
+	}
+
+	if (q || a) {
+		throw new Error("Card wasn't closed");
+	}
+
+	if (cards.length === 0) {
+		throw new Error("No cards, remove deck tag");
+	}
+
+	return {
+		deck,
+		cards,
+	};
+};
+
+// map each deck name to the files that contain its cards
+export const parseDecks = (files: Map<TFile, string>): BcSet => {
+	const bcSet: BcSet = new Map();
+	for (const [file, content] of files.entries()) {
+		const rawDecks = content.split("#deck").filter((d) => d);
+		for (const rd of rawDecks) {
+			const { deck, cards } = parseRawDeck(rd);
+			if (bcSet.has(deck))
+				bcSet.set(deck, [...bcSet.get(deck), { file, cards }]);
+			else bcSet.set(deck, [{ file, cards }]);
+		}
+	}
+	return bcSet;
+};
+
+// deck: {file: cards, file: card}
+
+//	postProcess(
+//		files.flatMap((deckFile) => {
+//			return deckFile
+//				.split("#deck ")
+//				.filter(
+//					(unprocessedDeck) =>
+//						unprocessedDeck &&
+//						unprocessedDeck !== "\n" &&
+//						unprocessedDeck.includes("q:") &&
+//						unprocessedDeck.includes("a:")
+//				)
+//				.map((cleanUDeck) => {
+//					let deckName = cleanUDeck.split("\n")[0];
+//          if(deckName === "#deck")
+//            deckName = ''
+//					const unprocessedCards = cleanUDeck
+//						.split("\n")
+//						.filter((row, i) => i !== 0 && row !== "")
+//						.join("\n");
+//
+//					const cards = processCards(unprocessedCards);
+//					return {
+//						deckName,
+//						cards,
+//					};
+//				})
+//        .filter(d => d.deckName.length > 0)
+//		})
+//;
 
 // if a deck is cited in multiple files it will generate multiples entries in BcSet[], we merge them here
 export const postProcess = (rawDecks: BcSet[]): BcSet[] => {
@@ -120,6 +190,13 @@ export const applyPatches = async (
 	for (const file of mdFiles) {
 		let content = mdFileContents[mdFiles.indexOf(file)];
 		let newContent: string[] = [];
+
+		// patching should be done using more detailed data
+		// {
+		//  deckName: {
+		//    ["filename"]: [1, 2, 3]
+		//  }
+		// }
 
 		content
 			.split("\n")
