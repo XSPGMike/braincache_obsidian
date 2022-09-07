@@ -6,4 +6,4 @@ export interface Card {
 	id?: string | null;
 }
 
-export type BcSet = Map<string, { file: TFile; cards: Card[] }[]>;
+export type BcMap = Map<string, { file: TFile, cards: Card[], lines: number[]}[]>;

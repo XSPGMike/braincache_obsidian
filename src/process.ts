@@ -1,14 +1,15 @@
 // @ts-ignore
 import { marked } from "marked";
 import { TFile } from "obsidian";
-import { BcSet, Card } from "./types";
+import { BcMap, Card } from "./types";
 
 export const cardTemplate = (deck?: boolean) => {
 	if (deck) return `#deck deckname\n\nq:\n\na:\n\n`;
 	return `q:\n\na:\n\n`;
 };
 
-const parseImages = (content: string): string => {
+// convert md image to valid html
+const imgMDtoHTML = (content: string): string => {
 	return content
 		.split("\n")
 		.map((content) => {
@@ -25,75 +26,39 @@ const parseImages = (content: string): string => {
 		.join("\n");
 };
 
-export const processCards = (
-	unprocessedCards: string
-): { question: string; answer: string; id: string | null }[] => {
-	return unprocessedCards
-		.split("q:")
-		.filter((unprocessedCard) => unprocessedCard !== "")
-		.map((unprocessedCard) => {
-			let question = unprocessedCard.split("a:")[0];
+const parseRawDeck = (raw: string, line: number): {deck: string; cards: Card[]; lines: number[] } => {
+	let [deck, ...rest] = raw.split("\n").map(l => l.trim())
 
-			if (question && question[0] === "\n") {
-				question = question.slice(1);
-			} else {
-				return;
-			}
-
-			let answer = unprocessedCard.split("a:")[1];
-
-			if (answer && answer[0] === "\n") {
-				answer = answer.slice(1);
-			} else {
-				return;
-			}
-
-			let id;
-
-			// check if the card contains a remoteId, if it does, strip it
-			if (answer && answer.contains("<!--id:")) {
-				id = answer.split("<!--id:")[1].split("-->")[0];
-				answer = answer.split("<!--id:")[0] + answer.split("-->")[1];
-			}
-
-			question = parseImages(question);
-			answer = parseImages(answer);
-
-			return {
-				question: marked.parse(question),
-				answer: marked.parse(answer),
-				id,
-			};
-		})
-		.filter((processed) => processed);
-};
-
-const parseRawDeck = (raw: string): { deck: string; cards: Card[] } => {
-	let [deck, ...rest] = raw
-		.split("\n")
-		.filter((l) => l)
-		.map((l) => l.trim());
 	const cards: Card[] = [];
-	let q,
-		a = false;
+	let q, a, id = false;
+  const lines = []
 
-	for (const r of rest) {
+	for (const [i, r] of rest.entries()) {
 		switch (r) {
+      case "":
+        break;
 			case "q:":
 				q = true;
 				cards.push({ q: "", a: "" });
 				break;
 			case "a:":
 				if (q) [q, a] = [false, true];
+        lines.push(line+i+2)
 				break;
 			case "---":
 				[q, a] = [false, false];
+        break;
 			default:
 				if (q || a) {
 					let lc = cards.at(-1);
 					if (q) {
 						lc["q"] += r + "\n";
 					} else if (a) {
+            if(r.contains("<!--id:") && !id){
+              lc.id = r.split("<!--id:")[1].split("-->")[0]
+              id = true
+              continue
+            }
 						lc["a"] += r + "\n";
 					}
 					cards[cards.length - 1] = lc;
@@ -102,10 +67,14 @@ const parseRawDeck = (raw: string): { deck: string; cards: Card[] } => {
 		}
 	}
 
-	for (const c of cards) {
-		if (!c["q"] || !c["a"]) {
+	for (let [i, c] of cards.entries()) {
+    let { q, a } = c
+		if (!q || !a ) {
 			throw new Error("Invalid card construction");
 		}
+    q = imgMDtoHTML(marked(q))
+    a = imgMDtoHTML(marked(a))
+    cards[i] = {q, a}
 	}
 
 	if (q || a) {
@@ -119,96 +88,30 @@ const parseRawDeck = (raw: string): { deck: string; cards: Card[] } => {
 	return {
 		deck,
 		cards,
+    lines,
 	};
 };
 
 // map each deck name to the files that contain its cards
-export const parseDecks = (files: Map<TFile, string>): BcSet => {
-	const bcSet: BcSet = new Map();
+export const parseDecks = (files: Map<TFile, string>): BcMap => {
+	const bcMap: BcMap = new Map();
 	for (const [file, content] of files.entries()) {
-		const rawDecks = content.split("#deck").filter((d) => d);
-		for (const rd of rawDecks) {
-			const { deck, cards } = parseRawDeck(rd);
-			if (bcSet.has(deck))
-				bcSet.set(deck, [...bcSet.get(deck), { file, cards }]);
-			else bcSet.set(deck, [{ file, cards }]);
+    content.split("#deck").filter(d => d).forEach((d) => {
+      console.log(d, d.split('\n').length)
+    })
+    let cnt = 0
+		const deckStrings = content.split("#deck").filter((d) => d)
+    const rawDecks: [d: string, line: number][] = []
+    for(const d of deckStrings){
+      rawDecks.push([d, cnt])
+      cnt += d.split('\n').length
+    }
+		for (const [rd, line] of rawDecks) {
+			const { deck, cards, lines } = parseRawDeck(rd, line);
+			if (bcMap.has(deck))
+				bcMap.set(deck, [...bcMap.get(deck), { file, cards, lines }]);
+			else bcMap.set(deck, [{ file, cards, lines }]);
 		}
 	}
-	return bcSet;
-};
-
-// deck: {file: cards, file: card}
-
-//	postProcess(
-//		files.flatMap((deckFile) => {
-//			return deckFile
-//				.split("#deck ")
-//				.filter(
-//					(unprocessedDeck) =>
-//						unprocessedDeck &&
-//						unprocessedDeck !== "\n" &&
-//						unprocessedDeck.includes("q:") &&
-//						unprocessedDeck.includes("a:")
-//				)
-//				.map((cleanUDeck) => {
-//					let deckName = cleanUDeck.split("\n")[0];
-//          if(deckName === "#deck")
-//            deckName = ''
-//					const unprocessedCards = cleanUDeck
-//						.split("\n")
-//						.filter((row, i) => i !== 0 && row !== "")
-//						.join("\n");
-//
-//					const cards = processCards(unprocessedCards);
-//					return {
-//						deckName,
-//						cards,
-//					};
-//				})
-//        .filter(d => d.deckName.length > 0)
-//		})
-//;
-
-// if a deck is cited in multiple files it will generate multiples entries in BcSet[], we merge them here
-export const postProcess = (rawDecks: BcSet[]): BcSet[] => {
-	const decks: BcSet[] = [];
-	for (const rawDeck of rawDecks) {
-		const deck = decks.find((deck) => deck.deckName === rawDeck.deckName);
-		deck
-			? (deck.cards = deck.cards.concat(rawDeck.cards))
-			: decks.push(rawDeck);
-	}
-	return decks;
-};
-
-export const applyPatches = async (
-	patches: any[],
-	mdFiles: TFile[],
-	mdFileContents: string[],
-	vault: any
-) => {
-	for (const file of mdFiles) {
-		let content = mdFileContents[mdFiles.indexOf(file)];
-		let newContent: string[] = [];
-
-		// patching should be done using more detailed data
-		// {
-		//  deckName: {
-		//    ["filename"]: [1, 2, 3]
-		//  }
-		// }
-
-		content
-			.split("\n")
-			.forEach((row: string, idx: number, arr: string[]) => {
-				newContent.push(row);
-				if (row === "a:" && !arr[idx + 1].includes("<!--id:")) {
-					newContent.push(`<!--id:${patches.shift()}-->`);
-				} else if (row === "a:") {
-					patches.shift();
-				}
-			});
-
-		await vault.modify(file, newContent.join("\n"));
-	}
+	return bcMap;
 };

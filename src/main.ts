@@ -6,15 +6,12 @@ import {
 	Plugin,
 	TFile,
 } from "obsidian";
-import { parseDecks, applyPatches } from "./process";
+import { parseDecks } from "./process";
 import { checkAuth, syncDecks } from "./api";
 import { BCSetting } from "./settings";
 import { BcCreateCard, BcSyncDecks } from "./commands";
 import { ribbonIcon } from "./consts";
-
-const DEFAULT_SETTINGS = {
-	dateFormat: "testing",
-};
+import { BcMap } from "./types";
 
 export default class Braincache extends Plugin {
 	settings: { dateFormat?: string } = {};
@@ -31,7 +28,6 @@ export default class Braincache extends Plugin {
 	async onload() {
 		addIcon("braincache", ribbonIcon);
 		this.addSettingTab(new BCSetting(this.app, this));
-		await this.loadSettings();
 		this.addRibbonIcon(
 			"braincache",
 			"braincache sync",
@@ -50,81 +46,40 @@ export default class Braincache extends Plugin {
 		let mdFilesMap = new Map<TFile, string>();
 		for (const mdFile of vault.getMarkdownFiles()) {
 			const mdFileContent = await vault.cachedRead(mdFile);
-			if (mdFileContent.includes("#deck")) {
+			if (mdFileContent.replace('/n', ' ').split(' ').includes("#deck"))
 				mdFilesMap.set(mdFile, mdFileContent);
-			}
 		}
 
-		let decks;
+		let decks: BcMap;
+
 		try {
 			decks = parseDecks(mdFilesMap);
 		} catch (e) {
 			new Notice(e);
 		}
+
 		let cardCount = 0;
-		for (const [_, entries] of decks.entries()) {
-			for (const e of entries) {
-				cardCount += e.cards.length;
+		for (const entries of decks.values()) {
+			for (const deck of entries) {
+				cardCount += deck.cards.length;
 			}
 		}
-
 		if (cardCount === 0) {
 			new Notice("No cards to sync");
 			return;
 		}
 
-		/*DEBUG && console.time("applying remote patches");
-	  const { patches, del, results } = await syncRemoteDecks(decks, vault);
-	  DEBUG && console.timeEnd("applying remote patches");
-
-	  DEBUG && console.time("applying local patches");
-	  await applyPatches(patches, mdFiles, mdFilesContents, vault);
-	  DEBUG && console.timeEnd("applying local patches");
-
-	  let totCount = 0;
-	  let finals = [];
-	  for (let i = 0; i < decks.length; i++) {
-		finals.push({
-		  name: decks[i].deckName,
-		  synced: 0,
-		  error: 0,
-		});
-		for (let y = 0; y < decks[i].cards.length; y++) {
-		  if (results[totCount]) {
-			finals.at(-1).synced++;
-		  } else {
-			finals.at(-1).error++;
-		  }
-		  totCount++;
+		try {
+			//await syncDecks(decks, vault)
+			new Notice(`${cardCount} cards synced correctly`)
+		} catch (e) {
+			new Notice("There was an error while syncing decks")
 		}
-	  }
-
-	  // notice that some decks have been deleted remotely
-	  if (del) {
-		new Notice(
-		  `Some cards or decks were deleted remotely, delete local ids to sync them again!`
-		);
-	  }
-	  new Notice(
-		`total cards: ${cardCount}\n${finals
-		  .map((d) => `${d.name}: ${d.synced} synced, ${d.error} errors`)
-		  .join("\n")}`
-	  );*/
 	}
 
-	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
-		);
+	onunload() {
+		/*localStorage.removeItem("braincache-token")*/
 	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-
-	onunload() { }
 }
 
 class LoginModal extends Modal {

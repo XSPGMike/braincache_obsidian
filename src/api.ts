@@ -1,5 +1,5 @@
 import { Vault, TFile } from "obsidian";
-import { Card, BcSet } from "./types";
+import { Card, BcSet, BcMap } from "./types";
 
 const API_URL = "https://api.braincache.co";
 const api = (endPoint: string) => `${API_URL}/${endPoint}`;
@@ -26,17 +26,7 @@ export async function checkAuth(): Promise<boolean> {
 	return false;
 }
 
-async function remoteDeckExists(deckId: string): Promise<boolean> {
-	let res = await fetch(api(`decks/${deckId}`), {
-		headers: {
-			Authorization: `Bearer ${token()}`,
-		},
-	});
-
-	return res.status === 200;
-}
-
-async function findRemoteDeck(deckName: string): Promise<string> {
+async function getDeck(deckName: string): Promise<string> {
 	let res = await fetch(api("decks"), {
 		headers: {
 			Authorization: `Bearer ${token()}`,
@@ -46,28 +36,7 @@ async function findRemoteDeck(deckName: string): Promise<string> {
 	return decks.find((d: any) => d.name === deckName)?.deckId;
 }
 
-async function findOrCreateDeck(deckName: string): Promise<string | undefined> {
-	if (deckName.length === 0) return;
-	let deckId = localStorage.getItem(`bcDeck_${deckName}`);
-
-	/* the deck has been used locally before, 
-	 this checks if it is still present on the server */
-	if (deckId) {
-		if (await remoteDeckExists(deckId)) {
-			return deckId;
-		}
-	}
-
-	/* the deck hasn't been used locally yet, 
-	 this checks if a deck with the same name exists on the server */
-	deckId = await findRemoteDeck(deckName);
-
-	if (deckId) {
-		return deckId;
-	}
-
-	/* the deck hasn't been used locally,
-	 a deck with that name doesn't exists on the sever, hence it gets created */
+async function createDeck(deckName: string): Promise<string> {
 	const response = await fetch(api("decks"), {
 		method: "POST",
 		headers: {
@@ -78,9 +47,20 @@ async function findOrCreateDeck(deckName: string): Promise<string | undefined> {
 			name: deckName,
 		}),
 	});
-
 	const deck = await response.json();
 	return deck.deckId;
+}
+
+async function getOrCreateDeck(deckName: string): Promise<string | undefined> {
+	if (deckName.length === 0) return;
+	/* the deck hasn't been used locally yet, this checks if a deck with the same name exists on the server */
+	let deckId;
+	if (deckId = await getDeck(deckName))
+		return deckId;
+
+	/* a deck with that name doesn't exists on the sever, hence it gets created */
+	deckId = await createDeck(deckName)
+	return deckId
 }
 
 async function getBinary(img: string, vault: Vault) {
@@ -92,119 +72,124 @@ async function getBinary(img: string, vault: Vault) {
 }
 
 /* if the card contains images they will be uploaded */
-async function uploadMedia(card: Card, vault: Vault): Promise<Card> {
-	for (const entry of ["question", "answer"])
-		if (card[entry as "question" | "answer"].includes('<img src="')) {
-			const entryImages = card[entry as "question" | "answer"]
-				.match(/<img [^>]*src="[^"]*"[^>]*>/gm)
-				.map((x) => x.replace(/.*src="([^"]*)".*/, "$1"));
-			const entryBinaries = [];
+//async function uploadMedia(card: Card, vault: Vault): Promise<Card> {
+//	for (const entry of ["question", "answer"])
+//		if (card[entry as "question" | "answer"].includes('<img src="')) {
+//			const entryImages = card[entry as "question" | "answer"]
+//				.match(/<img [^>]*src="[^"]*"[^>]*>/gm)
+//				.map((x) => x.replace(/.*src="([^"]*)".*/, "$1"));
+//			const entryBinaries = [];
+//
+//			for (const qImage of entryImages) {
+//				const imageBuffer = await getBinary(qImage, vault);
+//				entryBinaries.push(
+//					new File([imageBuffer.data], imageBuffer.name)
+//				);
+//			}
+//
+//			const remoteImagesIds: string[] = [];
+//			for (const bin of entryBinaries) {
+//				const formData = new FormData();
+//				formData.append("media", bin);
+//				const res = await fetch(api(`cards/media`), {
+//					headers: {
+//						Authorization: `Bearer ${token()}`,
+//					},
+//					method: "POST",
+//					body: formData,
+//				});
+//				const json = await res.json();
+//				remoteImagesIds.push(json.url);
+//			}
+//
+//			card[entry as "question" | "answer"] = card[
+//				entry as "question" | "answer"
+//			]
+//				.split("\n")
+//				.map((n) => {
+//					if (n.includes('src="')) {
+//						const next = n.replace(
+//							/src="(?:[^'\/]*\/)*([^']+)"/g,
+//							`src="${remoteImagesIds.shift()}"`
+//						);
+//						return next;
+//					} else {
+//						return n;
+//					}
+//				})
+//				.join("\n");
+//		}
+//	return card;
+//}
 
-			for (const qImage of entryImages) {
-				const imageBuffer = await getBinary(qImage, vault);
-				entryBinaries.push(
-					new File([imageBuffer.data], imageBuffer.name)
-				);
-			}
+async function uploadCards(deckId: string, cards: Card[]): Promise<string[]> {
 
-			const remoteImagesIds: string[] = [];
-			for (const bin of entryBinaries) {
-				const formData = new FormData();
-				formData.append("media", bin);
-				const res = await fetch(api(`cards/media`), {
-					headers: {
-						Authorization: `Bearer ${token()}`,
-					},
-					method: "POST",
-					body: formData,
-				});
-				const json = await res.json();
-				remoteImagesIds.push(json.url);
-			}
+  function createCard(deckId: string, card: Card): Promise<Response> {
+    return fetch(api(`decks/${deckId}/card`), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        front: card.q,
+        back: card.a
+      })
+    })
+  }
 
-			card[entry as "question" | "answer"] = card[
-				entry as "question" | "answer"
-			]
-				.split("\n")
-				.map((n) => {
-					if (n.includes('src="')) {
-						const next = n.replace(
-							/src="(?:[^'\/]*\/)*([^']+)"/g,
-							`src="${remoteImagesIds.shift()}"`
-						);
-						return next;
-					} else {
-						return n;
-					}
-				})
-				.join("\n");
-		}
-	return card;
-}
+  function updateCard(card: Card): Promise<Response> {
+    if(!card.id) throw new Error("Card Id is not defined")
+    return fetch(`cards/${card.id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        front: card.q,
+        back: card.a
+      })
+    })
+  }
 
-export async function syncDecks(
-	cardSets: BcSet,
-	vault: Vault
-): Promise<{ patches: any[]; del: boolean; results: boolean[] }> {
-	const promises = [];
 	const headers = {
 		authorization: `Bearer ${token()}`,
 		"content-type": "application/json",
-	};
-	for (const set of cardSets) {
-		const deckId = await findOrCreateDeck(set.deckName);
-		if (!deckId) return;
-		localStorage.setItem(`bcDeck_${set.deckName}`, deckId);
-		for (let card of set.cards) {
-			card = await uploadMedia(card, vault);
-			/* if the card has an id it updates the remote card with the local contents, 
-		 otherwise creates a new one */
-			if (card.id) {
-				promises.push(
-					fetch(api(`cards/${card.id}`), {
-						method: "PATCH",
-						headers,
-						body: JSON.stringify({
-							front: card.question,
-							back: card.answer,
-						}),
-					})
-				);
-			} else {
-				promises.push(
-					fetch(api(`decks/${deckId}/card`), {
-						method: "POST",
-						headers,
-						body: JSON.stringify({
-							front: card.question,
-							back: card.answer,
-						}),
-					})
-				);
-			}
-		}
 	}
 
-	const results = await Promise.all(promises);
+  let promises = []
+  for(const card of cards){
+    if(!card.id)
+      promises.push(createCard(deckId, card))
+    else
+      promises.push(updateCard(card))
+  }
 
-	/* this array will contain ids to apply to new cards, 
-	 with empty spaces in between in order to easily allocate them, 
-	 this is an hack and it sucks */
+  const responses = await Promise.all(promises)
 
-	const cardPatches = [];
-	let del = false;
-	for (const result of results) {
-		if ([201, 200].includes(result.status)) {
-			const data = await result.json();
-			cardPatches.push(data.cardId);
-		} else {
-			del = true;
-			cardPatches.push(undefined);
+  const cardIds = []
+
+  for(const response of responses){
+    const { cardId } = await response.json()
+    cardIds.push(cardId)
+  }
+
+  return cardIds
+}
+
+async function writeIds(vault: Vault, file: TFile, ids: string[], lines: number[]){
+  if(lines.length !== ids.length)
+    throw new Error("Less cards than expected")
+
+  for(const [i, id] of ids.entries()){
+    const contents = await vault.read(file)
+    const splits = contents.split("\n")
+    splits.splice(lines[i]+i, 0, `<!--id:${id}-->\n`)
+    vault.modify(file, splits.join('\n'))
+  }
+}
+
+export async function syncDecks(cardSets: BcMap, vault: Vault){
+	for (const [name, data] of cardSets) {
+		const deck = await getOrCreateDeck(name)
+		for (const { file, cards, lines } of data) {
+      const cardIds = await uploadCards(deck, cards)
+      await writeIds(vault, file, cardIds, lines)
 		}
 	}
-	return {
-		patches: cardPatches,
-		del,
-		results: results.map((r) => [201, 200].includes(r.status)),
-	};
 }
