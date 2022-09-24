@@ -14,7 +14,6 @@ import { ribbonIcon } from "./consts";
 import { BcMap } from "./types";
 
 export default class Braincache extends Plugin {
-	settings: { dateFormat?: string } = {};
 
 	async handleSync() {
 		const authStatus = await checkAuth();
@@ -37,8 +36,6 @@ export default class Braincache extends Plugin {
 		);
 		this.addCommand(BcCreateCard);
 		this.addCommand(BcSyncDecks(this.handleSync.bind(this)));
-		const cardCountEl = this.addStatusBarItem();
-		cardCountEl.setText("0 cards");
 	}
 
 	async syncDecks() {
@@ -64,6 +61,7 @@ export default class Braincache extends Plugin {
 				cardCount += deck.cards.length;
 			}
 		}
+
 		if (cardCount === 0) {
 			new Notice("No cards to sync");
 			return;
@@ -75,10 +73,6 @@ export default class Braincache extends Plugin {
 		} catch (e) {
 			new Notice("There was an error while syncing decks")
 		}
-	}
-
-	onunload() {
-		/*localStorage.removeItem("braincache-token")*/
 	}
 }
 

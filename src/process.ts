@@ -96,9 +96,6 @@ const parseRawDeck = (raw: string, line: number): {deck: string; cards: Card[]; 
 export const parseDecks = (files: Map<TFile, string>): BcMap => {
 	const bcMap: BcMap = new Map();
 	for (const [file, content] of files.entries()) {
-    content.split("#deck").filter(d => d).forEach((d) => {
-      console.log(d, d.split('\n').length)
-    })
     let cnt = 0
 		const deckStrings = content.split("#deck").filter((d) => d)
     const rawDecks: [d: string, line: number][] = []

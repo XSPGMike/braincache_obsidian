@@ -1,5 +1,5 @@
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
-import Braincache from "./main";
+import type Braincache from "./main";
 
 export class BCSetting extends PluginSettingTab {
 	plugin: Braincache;
