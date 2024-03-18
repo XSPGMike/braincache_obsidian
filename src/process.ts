@@ -11,70 +11,64 @@ export const cardTemplate = (deck?: boolean) => {
 // convert md image to valid html
 const imgMDtoHTML = (content: string): string => {
 	return content
-		.split("\n")
-		.map((content) => {
-			if (content.contains("![[")) {
-				const localImage = content.split("![[")[1].split("]]")[0];
-				return (
-					content.split("![[")[0] +
+	.split("\n")
+	.map((content) => {
+		if (content.contains("![[")) {
+			const localImage = content.split("![[")[1].split("]]")[0];
+			return (
+				content.split("![[")[0] +
 					`<figure><img src=\"${localImage}\"></img></figure>` +
 					content.split("]]")[1]
-				);
-			}
-			return content;
-		})
-		.join("\n");
+			);
+		}
+		return content;
+	})
+	.join("\n");
 };
 
 const parseRawDeck = (raw: string, line: number): {deck: string; cards: Card[]; lines: number[] } => {
 	let [deck, ...rest] = raw.split("\n").map(l => l.trim())
 
 	const cards: Card[] = [];
-	let q, a, id = false;
-  const lines = []
+	let q, a = false;
+	const lines = []
 
 	for (const [i, r] of rest.entries()) {
-		switch (r) {
-      case "":
-        break;
-			case "q:":
-				q = true;
-				cards.push({ q: "", a: "" });
-				break;
-			case "a:":
-				if (q) [q, a] = [false, true];
-        lines.push(line+i+2)
-				break;
-			case "---":
-				[q, a] = [false, false];
-        break;
-			default:
-				if (q || a) {
-					let lc = cards.at(-1);
-					if (q) {
-						lc["q"] += r + "\n";
-					} else if (a) {
-            if(r.contains("<!--id:") && !id){
-              lc.id = r.split("<!--id:")[1].split("-->")[0]
-              id = true
-              continue
-            }
-						lc["a"] += r + "\n";
+		if(r === 'q:') {
+			q = true;
+			cards.push({ q: "", a: "" });
+		} else if(r === 'a:') {
+			if (q) {
+				[q, a] = [false, true];
+				lines.push(line+i+2)
+			}
+		} else if(r === '#end-deck') {
+			[q, a] = [false, false]
+		} else {
+			if (q || a) {
+				let lc = cards.at(-1);
+				if (q) {
+					lc["q"] += r + "\n";
+				} else if (a) {
+					if(r.contains("<!--id:")){
+						lc.id = r.split("<!--id:")[1].split("-->")[0]
+						continue
 					}
-					cards[cards.length - 1] = lc;
+					lc["a"] += r + "\n";
 				}
-				break;
+				cards[cards.length - 1] = lc;
+			}
 		}
 	}
 
 	for (let [i, c] of cards.entries()) {
-    let { q, a } = c
-		if (!q || !a ) {
-			throw new Error("Invalid card construction");
+		let { q, a } = c
+		if(!q || !a) {
+			throw new Error(`Invalid card construction, missing ${!q ? 'question' : 'answer'}`)
 		}
-    q = imgMDtoHTML(marked(q))
-    a = imgMDtoHTML(marked(a))
-    cards[i] = {q, a}
+		q = marked(q)
+		a = marked(a)
+		cards[i] = {...c, q, a}
 	}
 
 	if (q || a) {
@@ -88,7 +82,7 @@ const parseRawDeck = (raw: string, line: number): {deck: string; cards: Card[]; 
 	return {
 		deck,
 		cards,
-    lines,
+		lines,
 	};
 };
 
@@ -96,18 +90,22 @@ const parseRawDeck = (raw: string, line: number): {deck: string; cards: Card[]; 
 export const parseDecks = (files: Map<TFile, string>): BcMap => {
 	const bcMap: BcMap = new Map();
 	for (const [file, content] of files.entries()) {
-    let cnt = 0
+		let cnt = 0
 		const deckStrings = content.split("#deck").filter((d) => d)
-    const rawDecks: [d: string, line: number][] = []
-    for(const d of deckStrings){
-      rawDecks.push([d, cnt])
-      cnt += d.split('\n').length
-    }
+		const rawDecks: [d: string, line: number][] = []
+		for(const d of deckStrings) {
+			rawDecks.push([d, cnt])
+			cnt += d.split('\n').length
+		}
 		for (const [rd, line] of rawDecks) {
-			const { deck, cards, lines } = parseRawDeck(rd, line);
-			if (bcMap.has(deck))
-				bcMap.set(deck, [...bcMap.get(deck), { file, cards, lines }]);
-			else bcMap.set(deck, [{ file, cards, lines }]);
+			try {
+				const { deck, cards, lines } = parseRawDeck(rd, line);
+				if (bcMap.has(deck))
+					bcMap.set(deck, [...bcMap.get(deck), { file, cards, lines }]);
+				else bcMap.set(deck, [{ file, cards, lines }]);
+			} catch(e) {
+				throw e
+			}
 		}
 	}
 	return bcMap;

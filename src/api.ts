@@ -137,7 +137,7 @@ async function uploadCards(deckId: string, cards: Card[]): Promise<string[]> {
 
   function updateCard(card: Card): Promise<Response> {
     if(!card.id) throw new Error("Card Id is not defined")
-    return fetch(`cards/${card.id}`, {
+    return fetch(api(`cards/${card.id}`), {
       method: "PATCH",
       headers,
       body: JSON.stringify({
@@ -173,14 +173,17 @@ async function uploadCards(deckId: string, cards: Card[]): Promise<string[]> {
 }
 
 async function writeIds(vault: Vault, file: TFile, ids: string[], lines: number[]){
+	console.log(lines)
   if(lines.length !== ids.length)
     throw new Error("Less cards than expected")
 
   for(const [i, id] of ids.entries()){
     const contents = await vault.read(file)
     const splits = contents.split("\n")
-    splits.splice(lines[i]+i, 0, `<!--id:${id}-->\n`)
-    vault.modify(file, splits.join('\n'))
+	if(splits[lines[i]] !== `<!--id:${id}-->`) {
+		splits.splice(lines[i]+i, 0, `<!--id:${id}-->`)
+		vault.modify(file, splits.join('\n'))
+	}
   }
 }
 
@@ -188,8 +191,8 @@ export async function syncDecks(cardSets: BcMap, vault: Vault){
 	for (const [name, data] of cardSets) {
 		const deck = await getOrCreateDeck(name)
 		for (const { file, cards, lines } of data) {
-      const cardIds = await uploadCards(deck, cards)
-      await writeIds(vault, file, cardIds, lines)
+		  const cardIds = await uploadCards(deck, cards)
+		  await writeIds(vault, file, cardIds, lines)
 		}
 	}
 }

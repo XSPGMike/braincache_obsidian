@@ -34,7 +34,6 @@ export default class Braincache extends Plugin {
 				await this.handleSync();
 			}
 		);
-		this.addCommand(BcCreateCard);
 		this.addCommand(BcSyncDecks(this.handleSync.bind(this)));
 	}
 
@@ -53,6 +52,7 @@ export default class Braincache extends Plugin {
 			decks = parseDecks(mdFilesMap);
 		} catch (e) {
 			new Notice(e);
+			throw e
 		}
 
 		let cardCount = 0;
@@ -68,7 +68,7 @@ export default class Braincache extends Plugin {
 		}
 
 		try {
-			//await syncDecks(decks, vault)
+			await syncDecks(decks, vault)
 			new Notice(`${cardCount} cards synced correctly`)
 		} catch (e) {
 			new Notice("There was an error while syncing decks")
@@ -87,7 +87,7 @@ class LoginModal extends Modal {
 
 		title.createEl("img", {
 			attr: {
-				src: "https://braincache.co/android-chrome-192x192.baef1f58.png",
+				src: "https://braincache.co/assets/android-chrome-192x192-b2528bb3.png"
 			},
 		});
 

@@ -1,5 +1,5 @@
 ## braincache-obsidian plugin
-<img src="https://braincache.co/android-chrome-192x192.baef1f58.png" width=100/>
+<img src="https://braincache.co/assets/android-chrome-192x192-b2528bb3.png" width=100/>
 
 Create braincache flashcards directly from Obsidian.
 
