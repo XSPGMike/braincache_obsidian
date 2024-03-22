@@ -1,5 +1,5 @@
 import { Vault, TFile } from "obsidian";
-import { Card, BcSet, BcMap } from "./types";
+import { Card, BcMap } from "./types";
 
 const API_URL = "https://api.braincache.co";
 const api = (endPoint: string) => `${API_URL}/${endPoint}`;
