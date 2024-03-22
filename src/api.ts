@@ -71,60 +71,61 @@ async function getBinary(img: string, vault: Vault) {
 	}
 }
 
-/* if the card contains images they will be uploaded */
-//async function uploadMedia(card: Card, vault: Vault): Promise<Card> {
-//	for (const entry of ["question", "answer"])
-//		if (card[entry as "question" | "answer"].includes('<img src="')) {
-//			const entryImages = card[entry as "question" | "answer"]
-//				.match(/<img [^>]*src="[^"]*"[^>]*>/gm)
-//				.map((x) => x.replace(/.*src="([^"]*)".*/, "$1"));
-//			const entryBinaries = [];
-//
-//			for (const qImage of entryImages) {
-//				const imageBuffer = await getBinary(qImage, vault);
-//				entryBinaries.push(
-//					new File([imageBuffer.data], imageBuffer.name)
-//				);
-//			}
-//
-//			const remoteImagesIds: string[] = [];
-//			for (const bin of entryBinaries) {
-//				const formData = new FormData();
-//				formData.append("media", bin);
-//				const res = await fetch(api(`cards/media`), {
-//					headers: {
-//						Authorization: `Bearer ${token()}`,
-//					},
-//					method: "POST",
-//					body: formData,
-//				});
-//				const json = await res.json();
-//				remoteImagesIds.push(json.url);
-//			}
-//
-//			card[entry as "question" | "answer"] = card[
-//				entry as "question" | "answer"
-//			]
-//				.split("\n")
-//				.map((n) => {
-//					if (n.includes('src="')) {
-//						const next = n.replace(
-//							/src="(?:[^'\/]*\/)*([^']+)"/g,
-//							`src="${remoteImagesIds.shift()}"`
-//						);
-//						return next;
-//					} else {
-//						return n;
-//					}
-//				})
-//				.join("\n");
-//		}
-//	return card;
-//}
+async function uploadMedia(card: Card, vault: Vault): Promise<Card> {
+	for (const entry of ["q", "a"])
+		if (card[entry as "q" | "a"].includes('<img src="')) {
+			const entryImages = card[entry as "q" | "a"]
+				.match(/<img [^>]*src="[^"]*"[^>]*>/gm)
+				.map((x) => x.replace(/.*src="([^"]*)".*/, "$1"));
+			const entryBinaries = [];
 
-async function uploadCards(deckId: string, cards: Card[]): Promise<string[]> {
+			for (const qImage of entryImages) {
+				const imageBuffer = await getBinary(qImage, vault);
+				entryBinaries.push(
+					new File([imageBuffer.data], imageBuffer.name)
+				);
+			}
 
-  function createCard(deckId: string, card: Card): Promise<Response> {
+			const remoteImagesIds: string[] = [];
+			for (const bin of entryBinaries) {
+				const formData = new FormData();
+				formData.append("media", bin);
+				const res = await fetch(api(`cards/media`), {
+					headers: {
+						Authorization: `Bearer ${token()}`,
+					},
+					method: "POST",
+					body: formData,
+				});
+				const json = await res.json();
+				remoteImagesIds.push(json.url);
+			}
+
+			card[entry as "q" | "a"] = card[
+				entry as "q" | "a"
+			]
+				.split("\n")
+				.map((n) => {
+					if (n.includes('src="')) {
+						const next = n.replace(
+							/src="(?:[^'\/]*\/)*([^']+)"/g,
+							`src="${remoteImagesIds.shift()}"`
+						);
+						return next;
+					} else {
+						return n;
+					}
+				})
+				.join("\n");
+		}
+		console.log(card)
+	return card;
+}
+
+async function uploadCards(deckId: string, cards: Card[], vault?: Vault): Promise<string[]> {
+
+  async function createCard(deckId: string, card: Card): Promise<Response> {
+	card = await uploadMedia(card, vault)
     return fetch(api(`decks/${deckId}/card`), {
       method: "POST",
       headers,
@@ -135,8 +136,9 @@ async function uploadCards(deckId: string, cards: Card[]): Promise<string[]> {
     })
   }
 
-  function updateCard(card: Card): Promise<Response> {
+  async function updateCard(card: Card): Promise<Response> {
     if(!card.id) throw new Error("Card Id is not defined")
+	card = await uploadMedia(card, vault)
     return fetch(api(`cards/${card.id}`), {
       method: "PATCH",
       headers,
@@ -173,7 +175,6 @@ async function uploadCards(deckId: string, cards: Card[]): Promise<string[]> {
 }
 
 async function writeIds(vault: Vault, file: TFile, ids: string[], lines: number[]){
-	console.log(lines)
   if(lines.length !== ids.length)
     throw new Error("Less cards than expected")
 
@@ -191,7 +192,7 @@ export async function syncDecks(cardSets: BcMap, vault: Vault){
 	for (const [name, data] of cardSets) {
 		const deck = await getOrCreateDeck(name)
 		for (const { file, cards, lines } of data) {
-		  const cardIds = await uploadCards(deck, cards)
+		  const cardIds = await uploadCards(deck, cards, vault)
 		  await writeIds(vault, file, cardIds, lines)
 		}
 	}

@@ -17,7 +17,7 @@ const imgMDtoHTML = (content: string): string => {
 			const localImage = content.split("![[")[1].split("]]")[0];
 			return (
 				content.split("![[")[0] +
-					`<figure><img src=\"${localImage}\"></img></figure>` +
+					`<img src=\"${localImage}\"></img>` +
 					content.split("]]")[1]
 			);
 		}
@@ -68,7 +68,11 @@ const parseRawDeck = (raw: string, line: number): {deck: string; cards: Card[]; 
 		}
 		q = marked(q)
 		a = marked(a)
-		cards[i] = {...c, q, a}
+		cards[i] = {
+			...c,
+			q: imgMDtoHTML(q),
+			a: imgMDtoHTML(a),
+		}
 	}
 
 	if (q || a) {
