@@ -36,6 +36,7 @@ Cards can be defined in any of your markdown files with the following syntax:
 	
 	this is an answer.
 
+	#end-deck
 ```
 
 images can also be included, they will be uploaded to braincache's server
@@ -53,6 +54,7 @@ images can also be included, they will be uploaded to braincache's server
 	
 	this is an answer.
 
+	#end-deck
 ```
 
 Pressing the ribbon button or using the "sync" command will synchronize the local cards with your braincache account.
